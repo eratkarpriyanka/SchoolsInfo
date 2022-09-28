@@ -9,25 +9,21 @@ buildscript {
             'retrofit2': '2.9.0',
             'lifecycle': '2.5.1',
             'coroutines': '1.6.0',
+            'compose': '1.2.0',
+            'navigation': '2.5.1',
     ]
 
     repositories {
         google()
+        mavenCentral()
     }
 
     dependencies {
+        classpath 'com.android.tools.build:gradle:7.2.2'
         classpath "org.jetbrains.kotlin:kotlin-gradle-plugin:${versions.kotlin}"
         classpath "com.google.dagger:hilt-android-gradle-plugin:${versions.dagger}"
     }
 }
-
-
-plugins {
-    id 'com.android.application' version '7.2.2' apply false
-    id 'com.android.library' version '7.2.2' apply false
-    id 'org.jetbrains.kotlin.android' version '1.7.10' apply false
-}
-
 
 task clean(type: Delete) {
     delete rootProject.buildDir
