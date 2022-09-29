@@ -1,11 +1,11 @@
 package com.example.nycschools.viewmodels
 
 import android.util.Log
-import androidx.compose.runtime.mutableStateOf
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.example.nycschools.SchoolRepository
 import com.example.nycschools.models.RepositoryResult
+import com.example.nycschools.models.SchoolDetailsDataItem
 import com.example.nycschools.models.SchoolListDataItem
 import dagger.hilt.android.lifecycle.HiltViewModel
 import kotlinx.coroutines.flow.MutableStateFlow
@@ -18,21 +18,27 @@ import javax.inject.Inject
 class SchoolsViewModel @Inject constructor(private val schoolRepository: SchoolRepository) :
     ViewModel() {
 
-    val state = mutableStateOf<SchoolListState>(SchoolListState.Loading)
+    private val _liststate =
+        MutableStateFlow<SchoolApiResponseState>(SchoolApiResponseState.Loading)
+    val listState = _liststate.asStateFlow()
+
+    private val _detailsState =
+        MutableStateFlow<SchoolApiResponseState>(SchoolApiResponseState.Loading)
+    val detailsState = _detailsState.asStateFlow()
 
     /**
      * make an api call to request school list
      */
     fun loadSchools() {
         viewModelScope.launch {
-            state.value =
-                SchoolListState.Loading //reset the response state to default mode as loading
+            _liststate.value =
+                SchoolApiResponseState.Loading //reset the response state to default mode as loading
             schoolRepository.retrieveListOfSchools().catch { e ->
                 e.cause?.let {
-                    state.value = SchoolListState.Error(it.localizedMessage ?: "")
+                    _liststate.value = SchoolApiResponseState.Error(it.localizedMessage ?: "")
                     Log.d(
                         SchoolsViewModel::class.simpleName,
-                        "viewmodel error occurred while fetching response ${it.localizedMessage}"
+                        "viewmodel error occurred while fetching list response ${it.localizedMessage}"
                     )
                 }
             }.collect { response ->
@@ -40,18 +46,67 @@ class SchoolsViewModel @Inject constructor(private val schoolRepository: SchoolR
                     is RepositoryResult.Success -> {
                         Log.d(
                             SchoolsViewModel::class.simpleName,
-                            "viewmodel success fetching response ${response.data}"
+                            "viewmodel success fetching list response ${response.data}"
                         )
 
-                        state.value = SchoolListState.Success(response.data)
+                        _liststate.value = SchoolApiResponseState.Success(response.data)
                     }
 
                     is RepositoryResult.Error -> {
                         Log.d(
                             SchoolsViewModel::class.simpleName,
-                            "viewmodel error occurred while fetching response ${response.errorString}"
+                            "viewmodel error occurred while fetching list response ${response.errorString}"
                         )
-                        state.value = SchoolListState.Error(response.errorString)
+                        _liststate.value = SchoolApiResponseState.Error(response.errorString)
+                    }
+                }
+            }
+        }
+    }
+
+
+    /**
+     * Loading details of a school
+     */
+    fun loadSchoolDetails(schoolId: String) {
+        viewModelScope.launch {
+            _detailsState.value =
+                SchoolApiResponseState.Loading //reset the response state to default mode as loading
+            schoolRepository.retrieveSchoolDetails(schoolId).catch { e ->
+                e.cause?.let {
+                    _detailsState.value = SchoolApiResponseState.Error(it.localizedMessage ?: "")
+                    Log.d(
+                        SchoolsViewModel::class.simpleName,
+                        "viewmodel error occurred while fetching details response ${it.localizedMessage}"
+                    )
+                }
+            }.collect { response ->
+
+                when (response) {
+                    is RepositoryResult.Success -> {
+                        if (response.data.isNotEmpty()) {
+                            Log.d(
+                                SchoolsViewModel::class.simpleName,
+                                "viewmodel success fetching details response ${response.data}"
+                            )
+                            _detailsState.value =
+                                SchoolApiResponseState.SuccessDetails(response.data[0])
+
+                        } else {
+                            Log.d(
+                                SchoolsViewModel::class.simpleName,
+                                "viewmodel error occurred no school details available "
+                            )
+                            _detailsState.value =
+                                SchoolApiResponseState.Error("No details available")
+                        }
+                    }
+                    is RepositoryResult.Error -> {
+                        Log.d(
+                            SchoolsViewModel::class.simpleName,
+                            "viewmodel error occurred while fetching details response ${response.errorString}"
+                        )
+                        _detailsState.value = SchoolApiResponseState.Error(response.errorString)
                     }
                 }
             }
@@ -62,10 +117,13 @@ class SchoolsViewModel @Inject constructor(private val schoolRepository: SchoolR
 /**
  * Type of response statuses
  */
-sealed class SchoolListState {
-    object Loading : SchoolListState()
+sealed class SchoolApiResponseState {
+    object Loading : SchoolApiResponseState()
     data class Success(val data: List<SchoolListDataItem>) :
-        SchoolListState()
+        SchoolApiResponseState()
 
-    class Error(val errorStringRes: String) : SchoolListState()
+    data class SuccessDetails(val data: SchoolDetailsDataItem) :
+        SchoolApiResponseState()
+
+    class Error(val errorStringRes: String) : SchoolApiResponseState()
 }

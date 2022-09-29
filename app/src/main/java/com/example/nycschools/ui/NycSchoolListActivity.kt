@@ -7,14 +7,19 @@ import androidx.activity.compose.setContent
 import androidx.activity.viewModels
 import androidx.appcompat.app.AppCompatActivity
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.collectAsState
+import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.tooling.preview.Preview
 import androidx.lifecycle.Lifecycle
 import androidx.lifecycle.LifecycleOwner
 import androidx.lifecycle.lifecycleScope
 import androidx.lifecycle.repeatOnLifecycle
+import com.example.nycschools.R
 import com.example.nycschools.ui.compose.CircularProgressBar
+import com.example.nycschools.ui.compose.SchoolDetailsEmptyUI
+import com.example.nycschools.ui.compose.SchoolDetailsUI
 import com.example.nycschools.ui.compose.SchoolsListUI
-import com.example.nycschools.viewmodels.SchoolListState
+import com.example.nycschools.viewmodels.SchoolApiResponseState
 import com.example.nycschools.viewmodels.SchoolsViewModel
 import dagger.hilt.android.AndroidEntryPoint
 import kotlinx.coroutines.launch
@@ -37,7 +42,6 @@ class NycSchoolListActivity : AppCompatActivity(), LifecycleOwner {
         // launches coroutine without blocking the UI thread
         lifecycleScope.launch {
             repeatOnLifecycle(Lifecycle.State.STARTED) {
-
                 // Invokes the Schools API anytime the activity is started
                 viewModel.loadSchools()
             }
@@ -45,34 +49,43 @@ class NycSchoolListActivity : AppCompatActivity(), LifecycleOwner {
     }
 
     /**
-     * observe the school list @see [SchoolsViewModel.state] state flow
+     * observe the school list @see [SchoolsViewModel.listState] state flow
      */
     @Preview
     @Composable
     private fun LoadList() {
 
-
-        // Initializes schools state flow observer
-        when (val state = viewModel.state.value) {
-            is SchoolListState.Loading -> {
+        /* recompose jetpack compose ui based on changes to viewModel.state */
+        val stateFlow = viewModel.listState.collectAsState()
+        when (val state = stateFlow.value) {
+            is SchoolApiResponseState.Loading -> {
                 Log.d(NycSchoolListActivity::class.simpleName, "loading the list")
-                CircularProgressBar()
+                CircularProgressBar() // show circular progress
             }
-            is SchoolListState.Error -> {
+            is SchoolApiResponseState.Error -> {
                 Log.d(
                     NycSchoolListActivity::class.simpleName,
                     "error occurred loading the list ${state.errorStringRes}"
                 )
-                Toast.makeText(this, "There was an issue loading the list", Toast.LENGTH_SHORT)
-                    .show()
+                // display error message
+                Toast.makeText(
+                    this,
+                    stringResource(R.string.error_loading_list),
+                    Toast.LENGTH_SHORT
+                ).show()
+                SchoolDetailsEmptyUI() // show error UI
             }
-            is SchoolListState.Success -> {
+            is SchoolApiResponseState.Success -> {
                 Log.d(
                     NycSchoolListActivity::class.simpleName,
-                    "successfully fetched the list 1st school ${state.data[0].school_name}"
+                    "successfully fetched the list. Details of 1st school ${state.data[0].school_name}"
                 )
-
-                SchoolsListUI(state.data)
+                // populate the school list
+                SchoolsListUI(state.data, viewModel)
+            }
+            else -> {
+                /* Do nothing, this case is due to 2 success states in @see [SchoolsViewModel.SchoolApiResponseState]
+                *  */
             }
 
         }
