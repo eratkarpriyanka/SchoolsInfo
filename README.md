@@ -24,3 +24,4 @@ This app displays the list of schools  in NYC  and their info.
 - Hilt dependency injection
 - View binding
 - Unit testig using Mockk
+- UI using Jetpack Compose 
